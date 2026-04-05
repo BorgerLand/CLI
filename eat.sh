@@ -12,6 +12,7 @@ if ! command -v rustup &>/dev/null; then
 	read -rp "Rustup is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+		export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
 	else
 		exit 1
 	fi
@@ -35,6 +36,11 @@ mkdir -p $install_dir
 curl -fsSLo $install_dir/borger https://raw.githubusercontent.com/BorgerLand/CLI/refs/heads/main/borger
 chmod +x $install_dir/borger
 
+if command -v borger >/dev/null; then
+	echo "Command \`borger\` at the ready."
+	exit 0
+fi
+
 tildify() {
     if [[ $1 = $HOME/* ]]; then
         local replacement=\~/
@@ -45,141 +51,125 @@ tildify() {
     fi
 }
 
-refresh_command=''
+install_env=BORGER_INSTALL
+tilde_dir=$(tildify "$install_dir")
+quoted_install_dir=\"${install_dir//\"/\\\"}\"
 
-if ! command -v borger >/dev/null; then
-	install_env=BORGER_INSTALL
-	tilde_dir=$(tildify "$install_dir")
-	quoted_install_dir=\"${install_dir//\"/\\\"}\"
+if [[ $quoted_install_dir = \"$HOME/* ]]; then
+	quoted_install_dir=${quoted_install_dir/$HOME\//\$HOME/}
+fi
 
-	if [[ $quoted_install_dir = \"$HOME/* ]]; then
-		quoted_install_dir=${quoted_install_dir/$HOME\//\$HOME/}
+echo
+
+case $(basename "$SHELL") in
+fish)
+	commands=(
+		"set --export $install_env $quoted_install_dir"
+		"set --export PATH $install_env \$PATH"
+	)
+
+	fish_config=$HOME/.config/fish/config.fish
+	tilde_fish_config=$(tildify "$fish_config")
+
+	if [[ -w $fish_config ]]; then
+		{
+			echo -e '\n# borger'
+
+			for command in "${commands[@]}"; do
+				echo "$command"
+			done
+		} >>"$fish_config"
+
+		echo "Added \"$tilde_dir\" to \$PATH in \"$tilde_fish_config\""
+	else
+		echo "Manually add the directory to $tilde_fish_config (or similar):"
+
+		for command in "${commands[@]}"; do
+			echo "  $command"
+		done
+	fi
+	;;
+zsh)
+	commands=(
+		"export $install_env=$quoted_install_dir"
+		"export PATH=\"\$$install_env:\$PATH\""
+	)
+
+	zsh_config=$HOME/.zshrc
+	tilde_zsh_config=$(tildify "$zsh_config")
+
+	if [[ -w $zsh_config ]]; then
+		{
+			echo -e '\n# borger'
+
+			for command in "${commands[@]}"; do
+				echo "$command"
+			done
+		} >>"$zsh_config"
+
+		echo "Added \"$tilde_dir\" to \$PATH in \"$tilde_zsh_config\""
+	else
+		echo "Manually add the directory to $tilde_zsh_config (or similar):"
+
+		for command in "${commands[@]}"; do
+			echo "  $command"
+		done
+	fi
+	;;
+bash)
+	commands=(
+		"export $install_env=$quoted_install_dir"
+		"export PATH=\"\$$install_env:\$PATH\""
+	)
+
+	bash_configs=(
+		"$HOME/.bash_profile"
+		"$HOME/.bashrc"
+	)
+
+	if [[ ${XDG_CONFIG_HOME:-} ]]; then
+		bash_configs+=(
+			"$XDG_CONFIG_HOME/.bash_profile"
+			"$XDG_CONFIG_HOME/.bashrc"
+			"$XDG_CONFIG_HOME/bash_profile"
+			"$XDG_CONFIG_HOME/bashrc"
+		)
 	fi
 
-	echo
+	set_manually=true
+	for bash_config in "${bash_configs[@]}"; do
+		tilde_bash_config=$(tildify "$bash_config")
 
-	case $(basename "$SHELL") in
-	fish)
-		commands=(
-			"set --export $install_env $quoted_install_dir"
-			"set --export PATH $install_env \$PATH"
-		)
-
-		fish_config=$HOME/.config/fish/config.fish
-		tilde_fish_config=$(tildify "$fish_config")
-
-		if [[ -w $fish_config ]]; then
+		if [[ -w $bash_config ]]; then
 			{
 				echo -e '\n# borger'
 
 				for command in "${commands[@]}"; do
 					echo "$command"
 				done
-			} >>"$fish_config"
+			} >>"$bash_config"
 
-			echo "Added \"$tilde_dir\" to \$PATH in \"$tilde_fish_config\""
+			echo "Added \"$tilde_dir\" to \$PATH in \"$tilde_bash_config\""
 
-			refresh_command="source $tilde_fish_config"
-		else
-			echo "Manually add the directory to $tilde_fish_config (or similar):"
-
-			for command in "${commands[@]}"; do
-				echo "  $command"
-			done
+			set_manually=false
+			break
 		fi
-		;;
-	zsh)
-		commands=(
-			"export $install_env=$quoted_install_dir"
-			"export PATH=\"\$$install_env:\$PATH\""
-		)
+	done
 
-		zsh_config=$HOME/.zshrc
-		tilde_zsh_config=$(tildify "$zsh_config")
+	if [[ $set_manually = true ]]; then
+		echo "Manually add the directory to $tilde_bash_config (or similar):"
 
-		if [[ -w $zsh_config ]]; then
-			{
-				echo -e '\n# borger'
-
-				for command in "${commands[@]}"; do
-					echo "$command"
-				done
-			} >>"$zsh_config"
-
-			echo "Added \"$tilde_dir\" to \$PATH in \"$tilde_zsh_config\""
-
-			refresh_command="exec $SHELL"
-		else
-			echo "Manually add the directory to $tilde_zsh_config (or similar):"
-
-			for command in "${commands[@]}"; do
-				echo "  $command"
-			done
-		fi
-		;;
-	bash)
-		commands=(
-			"export $install_env=$quoted_install_dir"
-			"export PATH=\"\$$install_env:\$PATH\""
-		)
-
-		bash_configs=(
-			"$HOME/.bash_profile"
-			"$HOME/.bashrc"
-		)
-
-		if [[ ${XDG_CONFIG_HOME:-} ]]; then
-			bash_configs+=(
-				"$XDG_CONFIG_HOME/.bash_profile"
-				"$XDG_CONFIG_HOME/.bashrc"
-				"$XDG_CONFIG_HOME/bash_profile"
-				"$XDG_CONFIG_HOME/bashrc"
-			)
-		fi
-
-		set_manually=true
-		for bash_config in "${bash_configs[@]}"; do
-			tilde_bash_config=$(tildify "$bash_config")
-
-			if [[ -w $bash_config ]]; then
-				{
-					echo -e '\n# borger'
-
-					for command in "${commands[@]}"; do
-						echo "$command"
-					done
-				} >>"$bash_config"
-
-				echo "Added \"$tilde_dir\" to \$PATH in \"$tilde_bash_config\""
-
-				refresh_command="source $bash_config"
-				set_manually=false
-				break
-			fi
+		for command in "${commands[@]}"; do
+			echo "  $command"
 		done
-
-		if [[ $set_manually = true ]]; then
-			echo "Manually add the directory to $tilde_bash_config (or similar):"
-
-			for command in "${commands[@]}"; do
-				echo "  $command"
-			done
-		fi
-		;;
-	*)
-		echo 'Manually add the directory to ~/.bashrc (or similar):'
-		echo "  export $install_env=$quoted_install_dir"
-		echo "  export PATH=\"\$$install_env:\$PATH\""
-		;;
-	esac
-fi
+	fi
+	;;
+*)
+	echo 'Manually add the directory to ~/.bashrc (or similar):'
+	echo "  export $install_env=$quoted_install_dir"
+	echo "  export PATH=\"\$$install_env:\$PATH\""
+	;;
+esac
 
 echo
-echo "To get started, run:"
-echo
-
-if [[ $refresh_command ]]; then
-    echo "  $refresh_command"
-fi
-
-echo "  borger"
+echo "Please restart your terminal/shell to use the \`borger\` command."
