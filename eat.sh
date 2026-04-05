@@ -9,7 +9,7 @@ fi
 install_dir=$HOME/.borger
 
 if ! command -v rustup &>/dev/null; then
-	read -rp "Rustup is not installed. Would you like to install it? (y/n) " response
+	read -rp "Rustup is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
 	else
@@ -18,7 +18,7 @@ if ! command -v rustup &>/dev/null; then
 fi
 
 if ! command -v bun &>/dev/null; then
-	read -rp "Bun is not installed. Would you like to install it? (y/n) " response
+	read -rp "Bun is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		curl -fsSL https://bun.sh/install | bash
 	else
