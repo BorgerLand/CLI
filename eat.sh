@@ -11,7 +11,7 @@ install_dir=$HOME/.borger
 if ! command -v rustup &>/dev/null; then
 	read -rp "Rustup is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
+		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 	else
 		exit 1
 	fi
