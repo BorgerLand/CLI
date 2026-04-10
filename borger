@@ -41,7 +41,8 @@ cmd_init() {
 
 cmd_setup() {
 	set -x
-
+	
+	git submodule update --init --recursive
 	bun install --frozen-lockfile
 
 	for example in "${!IDE_CONFIG[@]}"; do
