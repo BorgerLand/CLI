@@ -1,1 +1,395 @@
-#!/usr/bin/env bash
+#!/bin/bash
+set -e
+echo 🍔
+
+declare -A IDE_CONFIG=(
+	[".vscode/launch.json.example"]=".vscode/launch.json"
+	[".vscode/settings.json.example"]=".vscode/settings.json"
+)
+
+assert_dev_not_running() {
+	#pgrep -f works on both linux and macos
+	#match our own concurrently invocation from cmd_dev
+	if pgrep -f "bun concurrently.*RUN-CODEGEN" >/dev/null 2>&1; then
+		echo "ERROR: Please close borger dev to avoid accidentally triggering concurrent builds."
+		exit 1
+	fi
+}
+
+cmd_init() {
+	if [ -z "${1:-}" ]; then
+		echo "ERROR: directory name is required"
+		echo "Usage: borger init <dir>"
+		exit 1
+	fi
+	
+	set -x
+	local DIR="$1"
+
+	git clone --recurse-submodules https://github.com/BorgerLand/BlankTemplate.git "$DIR"
+	cd "$DIR"
+	rm -rf .git
+	git init
+	cmd_setup
+	
+	set +x
+	echo
+	echo "Done. When you're ready to rumble, do:"
+	echo "  cd \"$DIR\""
+	echo "  borger dev"
+}
+
+cmd_setup() {
+	set -x
+
+	bun install --frozen-lockfile
+
+	for example in "${!IDE_CONFIG[@]}"; do
+		local target="${IDE_CONFIG[$example]}"
+		[ -f "$target" ] || cp "$example" "$target"
+	done
+
+	#build it for the first time so that dev doesn't kick off even more setting up
+	cd borger/code_generator
+	bun tsc
+	bun src/main.ts
+	cd ../server
+	cargo build --profile server-dev --features server
+	cd ../client/rs
+	wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features client --config 'include=[".cargo/config.mt.toml"]'
+}
+
+dev_help() {
+	echo "Usage: borger dev [options]"
+	echo ""
+	echo "Options:"
+	echo "  --session-replay  Enable client-sided session recording+dumping+replaying"
+	echo "  --host            Allow other devices to connect to this device's dev server"
+	echo "  --help"
+}
+
+cmd_dev() {
+	local CLIENT_FEATURES="client"
+	local VITE_HOST=""
+
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+			--session-replay)
+				CLIENT_FEATURES="$CLIENT_FEATURES,session_replay"
+				shift
+				;;
+			--host)
+				VITE_HOST="--host"
+				shift
+				;;
+			*)
+				dev_help
+				exit 1
+				;;
+		esac
+	done
+
+	assert_dev_not_running
+	
+	cd borger/code_generator
+	bun tsc
+	bun src/main.ts
+	cd ../..
+
+	bun concurrently \
+		--names "RUN-CODEGEN,TSC-CODEGEN,SERVER-RUST,CLIENT-RUST,CLIENT-VITE" \
+		-c      "bgGreen.bold,bgYellow.bold,bgBlue.bold,bgWhite.bold,bgRed.bold" \
+		"cd borger/code_generator && bun --watch --no-clear-screen src/main.ts" \
+		"cd borger/code_generator && bun tsc --watch --preserveWatchOutput" \
+		"cd borger/server    && cargo watch --why --no-vcs-ignores \
+			-w '../../borger/engine' \
+			-w '../../borger/server' \
+			-w '../../borger/procmac' \
+			-w '../../src/simulation' \
+			-w '../../Cargo.toml' \
+			-w '../../Cargo.lock' \
+			-w '../../rust-toolchain.toml' \
+			-s 'cargo      build                                               --profile server-dev --features server \
+				&& cd ../../target/server-dev \
+				&& while true; do RUST_BACKTRACE=full ./server --devcert ../../assets/devcert.json; sleep 1; done'" \
+		"cd borger/client/rs && cargo watch --why --no-vcs-ignores \
+			-w '../../../borger/engine' \
+			-w '../../../borger/client/rs/src' \
+			-w '../../../borger/client/rs/Cargo.toml' \
+			-w '../../../borger/client/rs/.cargo' \
+			-w '../../../borger/procmac' \
+			-w '../../../src/simulation' \
+			-w '../../../Cargo.toml' \
+			-w '../../../Cargo.lock' \
+			-w '../../../rust-toolchain.toml' \
+			-s \"wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES \
+				--config 'include=[\\\".cargo/config.mt.toml\\\"]'\"" \
+		"bun vite $VITE_HOST"
+}
+
+release_help() {
+	echo "Usage: borger release [options]"
+	echo ""
+	echo "Options:"
+	echo "  --build"
+	echo "  --run"
+	echo "  --password \"the password\"             (in conjunction with --run) Require a password to view the webpage. The username is blank."
+	echo "  --fullchain \"/path/to/fullchain.pem\"  (required for --run)"
+	echo "  --privkey \"/path/to/privkey.pem\"      (required for --run)"
+	echo "  --webtransport-port <u16>             (in conjunction with --run) WebTransport port. Default 6969"
+	echo "  --websocket-port <u16>                (in conjunction with --run) WebSocket port. Default 6996"
+	echo "  --https-port <u16>                    (in conjunction with --run) HTTPS port. Default 443"
+	echo "  --help"
+}
+
+cmd_release() {
+	local BUILD=""
+	local RUN=""
+	local PASSWORD=""
+	local FULLCHAIN=""
+	local PRIVKEY=""
+	local WEBTRANSPORT_PORT="6969"
+	local WEBSOCKET_PORT="6996"
+	local HTTPS_PORT="443"
+
+	if [ $# -eq 0 ]; then
+		release_help
+		exit 0
+	fi
+
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+			--build)
+				BUILD=1
+				shift
+				;;
+			--run)
+				RUN=1
+				shift
+				;;
+			--password)
+				PASSWORD="$2"
+				shift 2
+				;;
+			--fullchain)
+				FULLCHAIN="$2"
+				shift 2
+				;;
+			--privkey)
+				PRIVKEY="$2"
+				shift 2
+				;;
+			--webtransport-port)
+				WEBTRANSPORT_PORT="$2"
+				shift 2
+				;;
+			--websocket-port)
+				WEBSOCKET_PORT="$2"
+				shift 2
+				;;
+			--https-port)
+				HTTPS_PORT="$2"
+				shift 2
+				;;
+			*)
+				release_help
+				exit 0
+				;;
+		esac
+	done
+
+	if [ -n "$BUILD" ]; then
+		assert_dev_not_running
+
+		if [ -d "release" ] || [ -d "borger/client/rs/pkg" ]; then
+			echo "WARNING: The existing /release and /borger/client/rs/pkg folders need to be removed to proceed."
+			echo "Are you sure you want to obliterate? (y/n)"
+
+			read -r response
+			if ! [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				exit 1
+			fi
+			
+			set -x
+			rm -rf release borger/client/rs/pkg
+		else
+			set -x
+		fi
+
+		cd borger/code_generator
+		bun tsc
+		bun src/main.ts
+		cd ../client/rs
+		wasm-pack build --out-name client_rs_mt --profile client-release --target=web --features client --config 'include=[".cargo/config.mt.toml"]'
+		wasm-pack build --out-name client_rs_st --profile client-release --target=web --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
+		cd ../../..
+		bun vite build
+		bun rolldown --minify borger/client/rs/pkg/client_rs*.js -d release/client/assets
+		mv borger/client/rs/pkg/*.wasm release/client/assets
+		rm -rf release/client/devcert.json borger/client/rs/pkg #leaving stale builds in pkg confuses wasm-opt sometimes
+		cd borger/server
+		cargo build --profile server-release --features server
+		cd  ../..
+		mv target/server-release/server release
+
+		set +x
+	fi
+
+	if [ -n "$RUN" ]; then
+		if [ -z "$FULLCHAIN" ] || [ -z "$PRIVKEY" ]; then
+			echo "ERROR: --fullchain and --privkey are both required for --run"
+			exit 1
+		fi
+
+		# Convert to absolute paths before cd
+		FULLCHAIN="$(cd "$(dirname "$FULLCHAIN")" && pwd)/$(basename "$FULLCHAIN")"
+		PRIVKEY="$(cd "$(dirname "$PRIVKEY")" && pwd)/$(basename "$PRIVKEY")"
+
+		cd release
+
+		bun concurrently \
+			"./server --fullchain \"$FULLCHAIN\" --privkey \"$PRIVKEY\" --webtransport-port \"$WEBTRANSPORT_PORT\" --websocket-port \"$WEBSOCKET_PORT\"" \
+			"cd client && cat <<'SCRIPT' | PASSWORD=\"$PASSWORD\" FULLCHAIN=\"$FULLCHAIN\" PRIVKEY=\"$PRIVKEY\" PORT=\"$HTTPS_PORT\" bun -
+import { serve } from \"bun\";
+import { file } from \"bun\";
+
+const password = process.env.PASSWORD;
+const fullchain = process.env.FULLCHAIN;
+const privkey = process.env.PRIVKEY;
+const port = parseInt(process.env.PORT);
+const headers = {
+	\"Cross-Origin-Opener-Policy\": \"same-origin\",
+	\"Cross-Origin-Embedder-Policy\": \"require-corp\",
+	\"Cache-Control\": \"no-store, no-cache, must-revalidate\",
+	\"Pragma\": \"no-cache\",
+	\"Expires\": \"0\",
+	\"Strict-Transport-Security\": \"max-age=31536000; includeSubDomains\",
+};
+
+function checkAuth(req) {
+	if (!password) return true;
+	const auth = req.headers.get(\"Authorization\");
+	if (!auth || !auth.startsWith(\"Basic \")) return false;
+	const decoded = atob(auth.slice(6));
+	const [, pwd] = decoded.split(\":\");
+	return pwd === password;
+}
+
+const serverOptions = {
+	port,
+	tls: {
+		cert: Bun.file(fullchain),
+		key: Bun.file(privkey),
+	},
+	async fetch(req) {
+		if (!checkAuth(req)) {
+			return new Response(\"Unauthorized\", {
+				status: 401,
+				headers: { ...headers, \"WWW-Authenticate\": \"Basic realm=\\\"Protected\\\"\" },
+			});
+		}
+
+		const url = new URL(req.url);
+		let pathname = url.pathname;
+
+		if (pathname === \"/\") pathname = \"/index.html\";
+
+		//remove leading slash for file path
+		const filePath = pathname.slice(1) || \"index.html\";
+
+		const fileHandle = file(filePath);
+
+		if (await fileHandle.exists()) return new Response(fileHandle, { headers });
+		return new Response(\"404 Not Found\", { status: 404, headers });
+	},
+};
+
+console.log(\`HTTPS server running on port \${port}\`);
+
+serve(serverOptions);
+SCRIPT"
+	fi
+}
+
+cmd_clean() {
+	#for whatever reason, git clean -X (delete gitignored files) and -e (exclude) can't
+	#be used together, so excluded files must be manually filtered from the dry run
+	local GITIGNORED
+	GITIGNORED=$(git clean -dffXn | grep "^Would remove " | sed 's/^Would remove //')
+
+	local FILES_TO_CLEAN=()
+	while IFS= read -r file; do
+		[[ -n "$file" ]] || continue
+
+		local is_protected=false
+		for pattern in "${IDE_CONFIG[@]}"; do
+			if [[ "$file" == "$pattern" ]]; then
+				is_protected=true
+				break
+			fi
+		done
+
+		if [[ "$is_protected" == false ]]; then
+			FILES_TO_CLEAN+=("$file")
+		fi
+	done <<< "$GITIGNORED"
+
+	if [[ ${#FILES_TO_CLEAN[@]} -eq 0 ]]; then
+		echo "Workspace is already clean. Nothing to delete."
+		exit 0
+	fi
+
+	for file in "${FILES_TO_CLEAN[@]}"; do
+		echo "Would remove $file"
+	done
+
+	echo "WARNING: The files listed above (everything in .gitignore excluding IDE config) will be deleted."
+	echo "Are you sure you want to obliterate? (y/n)"
+
+	read -r response
+	if ! [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		exit 1
+	fi
+
+	for file in "${FILES_TO_CLEAN[@]}"; do
+		rm -rf "$file"
+	done
+}
+
+main_help() {
+	echo "Usage: borger <command>"
+	echo ""
+	echo "Commands:"
+	echo "  init <dir>  Scaffold a new project in the given directory name, then run setup"
+	echo "  setup       Download and compile dependencies"
+	echo "  dev         Development mode, automatically rebuilds when code changes"
+	echo "  release     Release mode, creates server executable and static client webpage"
+	echo "  clean       Remove all gitignored files except IDE config"
+}
+
+case "${1:-}" in
+	init)
+		shift
+		cmd_init "$@"
+		;;
+	setup)
+		shift
+		cmd_setup "$@"
+		;;
+	dev)
+		shift
+		cmd_dev "$@"
+		;;
+	release)
+		shift
+		cmd_release "$@"
+		;;
+	clean)
+		shift
+		cmd_clean "$@"
+		;;
+	*)
+		main_help
+		exit 1
+		;;
+esac
