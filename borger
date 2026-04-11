@@ -41,6 +41,7 @@ cmd_init()
 
 cmd_setup()
 {
+	assert_dev_not_running
 	set -x
 	
 	git submodule update --init --recursive
