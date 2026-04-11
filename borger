@@ -7,7 +7,8 @@ declare -A IDE_CONFIG=(
 	[".vscode/settings.json.example"]=".vscode/settings.json"
 )
 
-assert_dev_not_running() {
+assert_dev_not_running()
+{
 	#pgrep -f works on both linux and macos
 	#match our own concurrently invocation from cmd_dev
 	if pgrep -f "bun concurrently.*RUN-CODEGEN" >/dev/null 2>&1; then
@@ -16,7 +17,8 @@ assert_dev_not_running() {
 	fi
 }
 
-cmd_init() {
+cmd_init()
+{
 	if [ -z "${1:-}" ]; then
 		echo "ERROR: directory name is required"
 		echo "Usage: borger init <dir>"
@@ -28,8 +30,12 @@ cmd_init() {
 
 	git clone --recurse-submodules https://github.com/BorgerLand/BlankTemplate.git "$DIR"
 	cd "$DIR"
-	rm -rf .git
-	git init
+	git remote remove origin
+	git checkout --orphan blank-history
+	git add .
+	git commit -m "Initial commit"
+	git branch -D master
+	git branch -m master
 	cmd_setup
 	
 	set +x
@@ -39,7 +45,8 @@ cmd_init() {
 	echo "  borger dev"
 }
 
-cmd_setup() {
+cmd_setup()
+{
 	set -x
 	
 	git submodule update --init --recursive
@@ -60,7 +67,8 @@ cmd_setup() {
 	wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features client --config 'include=[".cargo/config.mt.toml"]'
 }
 
-dev_help() {
+dev_help()
+{
 	echo "Usage: borger dev [options]"
 	echo ""
 	echo "Options:"
@@ -69,7 +77,8 @@ dev_help() {
 	echo "  --help"
 }
 
-cmd_dev() {
+cmd_dev()
+{
 	local CLIENT_FEATURES="client"
 	local VITE_HOST=""
 
@@ -128,7 +137,8 @@ cmd_dev() {
 		"bun vite $VITE_HOST"
 }
 
-release_help() {
+release_help()
+{
 	echo "Usage: borger release [options]"
 	echo ""
 	echo "Options:"
@@ -143,7 +153,8 @@ release_help() {
 	echo "  --help"
 }
 
-cmd_release() {
+cmd_release()
+{
 	local BUILD=""
 	local RUN=""
 	local PASSWORD=""
@@ -312,7 +323,8 @@ SCRIPT"
 	fi
 }
 
-cmd_clean() {
+cmd_clean()
+{
 	#for whatever reason, git clean -X (delete gitignored files) and -e (exclude) can't
 	#be used together, so excluded files must be manually filtered from the dry run
 	local GITIGNORED
@@ -357,7 +369,8 @@ cmd_clean() {
 	done
 }
 
-main_help() {
+main_help()
+{
 	echo "Usage: borger <command>"
 	echo ""
 	echo "Commands:"
