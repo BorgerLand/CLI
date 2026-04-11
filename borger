@@ -37,12 +37,6 @@ cmd_init()
 	git branch -D master
 	git branch -m master
 	cmd_setup
-	
-	set +x
-	echo
-	echo "Done. When you're ready to rumble, do:"
-	echo "  cd \"$DIR\""
-	echo "  borger dev"
 }
 
 cmd_setup()
@@ -65,6 +59,12 @@ cmd_setup()
 	cargo build --profile server-dev --features server
 	cd ../client/rs
 	wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features client --config 'include=[".cargo/config.mt.toml"]'
+	
+	set +x
+	echo
+	echo "Done. When you're ready to rumble, do:"
+	echo "  cd \"$DIR\""
+	echo "  borger dev"
 }
 
 dev_help()
