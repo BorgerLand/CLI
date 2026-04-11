@@ -37,7 +37,8 @@ curl -fsSLo $install_dir/borger https://raw.githubusercontent.com/BorgerLand/CLI
 chmod +x $install_dir/borger
 
 if command -v borger >/dev/null; then
-	echo "Command \`borger\` at the ready."
+	echo
+	echo "Command \`borger\` armed and ready."
 	exit 0
 fi
 
