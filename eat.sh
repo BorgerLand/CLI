@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+	echo "ERROR: Bash 4.0 or newer is required (you have ${BASH_VERSION}, a relic of the Stone Age)"
+	exit 1
+fi
+
 if ! command -v git &>/dev/null; then
-	echo "You need to install git in order to cook borger."
+	echo "ERROR: You need to install git in order to cook borger."
 	exit 1
 fi
 
