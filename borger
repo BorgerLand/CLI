@@ -374,7 +374,7 @@ main_help()
 	echo "Usage: borger <command>"
 	echo ""
 	echo "Commands:"
-	echo "  init <dir>  Scaffold a new project in the given directory name, then run setup"
+	echo "  init <dir>  Scaffold a new project in the given directory name, then automatically run setup"
 	echo "  setup       Download and compile dependencies"
 	echo "  dev         Development mode, automatically rebuilds when code changes"
 	echo "  release     Release mode, creates server executable and static client webpage"
