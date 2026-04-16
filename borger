@@ -2,10 +2,8 @@
 set -e
 echo 🍔
 
-declare -A IDE_CONFIG=(
-	[".vscode/launch.json.example"]=".vscode/launch.json"
-	[".vscode/settings.json.example"]=".vscode/settings.json"
-)
+IDE_CONFIG_SOURCES=(".vscode/launch.json.example" ".vscode/settings.json.example")
+IDE_CONFIG_TARGETS=(".vscode/launch.json"         ".vscode/settings.json")
 
 assert_dev_not_running()
 {
@@ -47,9 +45,10 @@ cmd_setup()
 	git submodule update --init --recursive
 	bun install --frozen-lockfile
 
-	for example in "${!IDE_CONFIG[@]}"; do
-		local target="${IDE_CONFIG[$example]}"
-		[ -f "$target" ] || cp "$example" "$target"
+	for i in "${!IDE_CONFIG_SOURCES[@]}"; do
+		local src="${IDE_CONFIG_SOURCES[$i]}"
+		local target="${IDE_CONFIG_TARGETS[$i]}"
+		[ -f "$target" ] || cp "$src" "$target"
 	done
 
 	#build it for the first time so that dev doesn't kick off even more setting up
