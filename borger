@@ -37,6 +37,7 @@ cmd_init()
 		exit 1
 	fi
 	
+	assert_dev_not_running
 	check_for_update
 	
 	set -x
