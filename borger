@@ -119,7 +119,7 @@ cmd_dev()
 			-w '../../Cargo.toml' \
 			-w '../../Cargo.lock' \
 			-w '../../rust-toolchain.toml' \
-			-s 'cargo      build                                               --profile server-dev --features server \
+			-s 'cargo        build                                               --profile server-dev --features server \
 				&& cd ../../target/server-dev \
 				&& while true; do RUST_BACKTRACE=full ./server --devcert ../../assets/devcert.json; sleep 1; done'" \
 		"cd borger/client/rs && cargo watch --why --no-vcs-ignores \
@@ -132,7 +132,8 @@ cmd_dev()
 			-w '../../../Cargo.toml' \
 			-w '../../../Cargo.lock' \
 			-w '../../../rust-toolchain.toml' \
-			-s \"wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES \
+			-s \"rm -f pkg/client_rs_mt_bg.wasm \
+				&& wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES \
 				--config 'include=[\\\".cargo/config.mt.toml\\\"]'\"" \
 		"bun vite $VITE_HOST"
 }
