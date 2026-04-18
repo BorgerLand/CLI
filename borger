@@ -50,6 +50,8 @@ cmd_init()
 	git remote remove origin
 	git checkout --orphan blank-history
 	git add .
+	GIT_AUTHOR_NAME="The Borger Monster" GIT_AUTHOR_EMAIL="monster@borger.land" \
+	GIT_COMMITTER_NAME="The Borger Monster" GIT_COMMITTER_EMAIL="monster@borger.land" \
 	git commit -m "Initial commit"
 	git branch -D master
 	git branch -m master
