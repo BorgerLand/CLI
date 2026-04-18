@@ -5,6 +5,20 @@ echo 🍔
 IDE_CONFIG_SOURCES=(".vscode/launch.json.example" ".vscode/settings.json.example")
 IDE_CONFIG_TARGETS=(".vscode/launch.json"         ".vscode/settings.json")
 
+check_for_update()
+{
+	local current_script
+	current_script="$(cat "$0")"
+
+	local remote_script
+	remote_script="$(curl -fsSL --max-time 3 "https://raw.githubusercontent.com/BorgerLand/CLI/refs/heads/main/borger" 2>/dev/null)" || true
+
+	if [[ -n "$remote_script" && "$current_script" != "$remote_script" ]]; then
+		echo "Update is available for Borger CLI. You can install with:"
+		echo "  curl -fsSL https://eat.borger.dev | bash"
+	fi
+}
+
 assert_dev_not_running()
 {
 	#pgrep -f works on both linux and macos
@@ -23,6 +37,8 @@ cmd_init()
 		exit 1
 	fi
 	
+	check_for_update
+	
 	set -x
 	local DIR="$1"
 
@@ -40,6 +56,8 @@ cmd_init()
 cmd_setup()
 {
 	assert_dev_not_running
+	check_for_update
+	
 	set -x
 	
 	git submodule update --init --recursive
@@ -79,6 +97,9 @@ dev_help()
 
 cmd_dev()
 {
+	assert_dev_not_running
+	check_for_update
+	
 	local CLIENT_FEATURES="client"
 	local VITE_HOST=""
 
@@ -98,8 +119,6 @@ cmd_dev()
 				;;
 		esac
 	done
-
-	assert_dev_not_running
 	
 	cd borger/code_generator
 	bun tsc
@@ -156,6 +175,8 @@ release_help()
 
 cmd_release()
 {
+	check_for_update
+	
 	local BUILD=""
 	local RUN=""
 	local PASSWORD=""
