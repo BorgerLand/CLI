@@ -53,6 +53,8 @@ cmd_init()
 	git branch -m master
 	rm prettier.config.ts rustfmt.toml
 	bun uninstall prettier
+	
+	set +x
 	cmd_setup
 }
 
