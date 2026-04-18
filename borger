@@ -45,14 +45,14 @@ cmd_init()
 
 	git clone --recurse-submodules https://github.com/BorgerLand/BlankTemplate.git "$DIR"
 	cd "$DIR"
+	rm prettier.config.ts rustfmt.toml
+	bun uninstall prettier
 	git remote remove origin
 	git checkout --orphan blank-history
 	git add .
 	git commit -m "Initial commit"
 	git branch -D master
 	git branch -m master
-	rm prettier.config.ts rustfmt.toml
-	bun uninstall prettier
 	
 	set +x
 	cmd_setup
