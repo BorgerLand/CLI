@@ -88,7 +88,7 @@ cmd_setup()
 	set +x
 	echo
 	echo "Done. When you're ready to rumble, do:"
-	echo "  cd \"$DIR\""
+	[ -n "${DIR:-}" ] && echo "  cd \"$DIR\""
 	echo "  borger dev"
 }
 
