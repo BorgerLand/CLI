@@ -45,8 +45,8 @@ cmd_init()
 
 	git clone --recurse-submodules https://github.com/BorgerLand/BlankTemplate.git "$DIR"
 	cd "$DIR"
-	rm prettier.config.ts rustfmt.toml
-	bun uninstall prettier
+	rm eslint.config.ts prettier.config.ts rustfmt.toml
+	bun uninstall @eslint/js eslint-config-prettier eslint-plugin-prettier jiti prettier typescript-eslint
 	git remote remove origin
 	git checkout --orphan blank-history
 	git add .
