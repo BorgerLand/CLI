@@ -6,11 +6,14 @@ if ! command -v git &>/dev/null; then
 	exit 1
 fi
 
+needs_restart=false
+
 if ! command -v rustup &>/dev/null; then
 	read -rp "Rustup is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 		export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+		needs_restart=true
 	else
 		exit 1
 	fi
@@ -20,6 +23,7 @@ if ! command -v bun &>/dev/null; then
 	read -rp "Bun is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		curl -fsSL https://bun.sh/install | bash
+		needs_restart=true
 	else
 		exit 1
 	fi
@@ -35,6 +39,7 @@ if ! command -v node &>/dev/null; then
 		NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 		\. "$NVM_DIR/nvm.sh"
 		nvm install node
+		needs_restart=true
 	else
 		exit 1
 	fi
@@ -50,7 +55,7 @@ mkdir -p $install_dir
 curl -fsSLo $install_dir/borger https://raw.githubusercontent.com/BorgerLand/CLI/refs/heads/main/borger
 chmod +x $install_dir/borger
 
-if command -v rustup >/dev/null && command -v bun >/dev/null && command -v node >/dev/null && command -v borger >/dev/null; then
+if [[ $needs_restart = false ]] && command -v borger >/dev/null; then
 	echo
 	echo "Command \`borger\` armed and ready."
 	exit 0
