@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+
+YES_RE="^([yY][eE][sS]|[yY])$"
 
 if ! command -v git &>/dev/null; then
 	echo "ERROR: You need to install git in order to cook borger."
@@ -10,7 +12,7 @@ needs_restart=false
 
 if ! command -v rustup &>/dev/null; then
 	read -rp "Rustup is not installed. Would you like to install it? (y/n) " response </dev/tty
-	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+	if [[ "$response" =~ $YES_RE ]]; then
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 		export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
 		needs_restart=true
@@ -21,7 +23,7 @@ fi
 
 if ! command -v bun &>/dev/null; then
 	read -rp "Bun is not installed. Would you like to install it? (y/n) " response </dev/tty
-	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+	if [[ "$response" =~ $YES_RE ]]; then
 		curl -fsSL https://bun.sh/install | bash
 		needs_restart=true
 	else
@@ -34,7 +36,7 @@ fi
 #https://github.com/oven-sh/bun/issues/9998
 if ! command -v node &>/dev/null; then
 	read -rp "Node.js is not installed. Would you like to install it? (y/n) " response </dev/tty
-	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+	if [[ "$response" =~ $YES_RE ]]; then
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
 		NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 		\. "$NVM_DIR/nvm.sh"
@@ -51,9 +53,9 @@ cargo install --git https://github.com/Argeo-Robotics/wasm-pack.git --rev 956f6e
 cargo install cargo-watch --locked --version 8.5.3
 
 install_dir=$HOME/.borger
-mkdir -p $install_dir
-curl -fsSLo $install_dir/borger https://raw.githubusercontent.com/BorgerLand/CLI/refs/heads/main/borger
-chmod +x $install_dir/borger
+mkdir -p "$install_dir"
+curl -fsSLo "$install_dir/borger" https://raw.githubusercontent.com/BorgerLand/CLI/refs/heads/main/borger
+chmod +x "$install_dir/borger"
 
 if [[ $needs_restart = false ]] && command -v borger >/dev/null; then
 	echo
@@ -81,7 +83,7 @@ if ! command -v borger >/dev/null; then
 
 	echo
 
-	case $(basename "$SHELL") in
+	case $(basename "${SHELL:-}") in
 	fish)
 		commands=(
 			"set --export $install_env $quoted_install_dir"

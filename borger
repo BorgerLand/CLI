@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 echo 🍔
 
 IDE_CONFIG_SOURCES=(".vscode/launch.json.example" ".vscode/settings.json.example")
 IDE_CONFIG_TARGETS=(".vscode/launch.json"         ".vscode/settings.json")
+YES_RE="^([yY][eE][sS]|[yY])$"
 
 check_for_update()
 {
@@ -240,7 +241,7 @@ cmd_release()
 				;;
 			*)
 				release_help
-				exit 0
+				exit 1
 				;;
 		esac
 	done
@@ -253,7 +254,7 @@ cmd_release()
 			echo "Are you sure you want to obliterate? (y/n)"
 
 			read -r response
-			if ! [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			if ! [[ "$response" =~ $YES_RE ]]; then
 				exit 1
 			fi
 			
@@ -374,17 +375,23 @@ SCRIPT"
 
 cmd_clean()
 {
+	assert_dev_not_running
+	
 	#for whatever reason, git clean -X (delete gitignored files) and -e (exclude) can't
 	#be used together, so excluded files must be manually filtered from the dry run
 	local GITIGNORED
-	GITIGNORED=$(git clean -dffXn | grep "^Would remove " | sed 's/^Would remove //')
+	GITIGNORED=$(
+		git clean -dffXn | sed -n 's/^Would remove //p'
+		git submodule foreach --recursive --quiet \
+			'git clean -dffXn | sed -n "s|^Would remove |$displaypath/|p"'
+	)
 
 	local FILES_TO_CLEAN=()
 	while IFS= read -r file; do
 		[[ -n "$file" ]] || continue
 
 		local is_protected=false
-		for pattern in "${IDE_CONFIG[@]}"; do
+		for pattern in "${IDE_CONFIG_TARGETS[@]}"; do
 			if [[ "$file" == "$pattern" ]]; then
 				is_protected=true
 				break
@@ -409,7 +416,7 @@ cmd_clean()
 	echo "Are you sure you want to obliterate? (y/n)"
 
 	read -r response
-	if ! [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+	if ! [[ "$response" =~ $YES_RE ]]; then
 		exit 1
 	fi
 
