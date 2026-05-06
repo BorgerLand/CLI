@@ -264,7 +264,6 @@ cmd_release()
 		wasm-pack build --out-name client_rs_mt --profile client-release --target=web --features client --config 'include=[".cargo/config.mt.toml"]'
 		wasm-pack build --out-name client_rs_st --profile client-release --target=web --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
 		cd ../../..
-		bun tsc --project tsconfig.presentation.json #https://github.com/oven-sh/bun/issues/9998
 		bun vite build
 		bun rolldown --minify borger/client/rs/pkg/client_rs*.js -d release/client/assets
 		mv borger/client/rs/pkg/*.wasm release/client/assets
