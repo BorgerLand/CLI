@@ -27,6 +27,20 @@ if ! command -v bun &>/dev/null; then
 	fi
 fi
 
+#unfortunately node is required due to some bun bugs
+#https://github.com/oven-sh/bun/pull/28787
+#https://github.com/oven-sh/bun/issues/9998
+if ! command -v node &>/dev/null; then
+	read -rp "Node.js is not installed. Would you like to install it? (y/n) " response </dev/tty
+	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+		\. "$HOME/.config/nvm/nvm.sh"
+		nvm install node
+	else
+		exit 1
+	fi
+fi
+
 #wasm-pack has some unreleased features regarding custom profiles
 #https://github.com/drager/wasm-pack/pull/1489
 cargo install --git https://github.com/Argeo-Robotics/wasm-pack.git --rev 956f6e4 --locked
