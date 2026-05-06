@@ -32,7 +32,8 @@ if ! command -v node &>/dev/null; then
 	read -rp "Node.js is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-		\. "$HOME/.config/nvm/nvm.sh"
+		NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+		\. "$NVM_DIR/nvm.sh"
 		nvm install node
 	else
 		exit 1
