@@ -65,8 +65,8 @@ fi
 
 tildify() {
 	if [[ $1 = $HOME/* ]]; then
-		local replacement=\~/
-		echo "${1/$HOME\//$replacement}"
+		local replacement=\~
+		echo "${1/#"$HOME"/$replacement}"
 	else
 		echo "$1"
 	fi
