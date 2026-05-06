@@ -22,7 +22,6 @@ check_for_update()
 
 assert_dev_not_running()
 {
-	#pgrep -f works on both linux and macos
 	#match our own concurrently invocation from cmd_dev
 	if pgrep -f "bun concurrently.*RUN-CODEGEN" >/dev/null 2>&1; then
 		echo "ERROR: Please close borger dev to avoid accidentally triggering concurrent builds."
@@ -289,7 +288,6 @@ cmd_release()
 			exit 1
 		fi
 
-		# Convert to absolute paths before cd
 		FULLCHAIN="$(cd "$(dirname "$FULLCHAIN")" && pwd)/$(basename "$FULLCHAIN")"
 		PRIVKEY="$(cd "$(dirname "$PRIVKEY")" && pwd)/$(basename "$PRIVKEY")"
 
