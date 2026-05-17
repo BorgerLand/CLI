@@ -21,19 +21,6 @@ if ! command -v rustup &>/dev/null; then
 	fi
 fi
 
-if ! command -v bun &>/dev/null; then
-	read -rp "Bun is not installed. Would you like to install it? (y/n) " response </dev/tty
-	if [[ "$response" =~ $YES_RE ]]; then
-		curl -fsSL https://bun.sh/install | bash
-		needs_restart=true
-	else
-		exit 1
-	fi
-fi
-
-#unfortunately node is required due to some bun bugs
-#https://github.com/oven-sh/bun/pull/28787
-#https://github.com/oven-sh/bun/issues/9998
 if ! command -v node &>/dev/null; then
 	read -rp "Node.js is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ $YES_RE ]]; then
@@ -47,8 +34,16 @@ if ! command -v node &>/dev/null; then
 	fi
 fi
 
+node_required_version="22.18.0"
+node_installed_version=$(node --version | sed 's/^v//')
+
+if ! printf '%s\n%s' "$node_required_version" "$node_installed_version" | sort -V -C; then
+    echo "ERROR: Node.js 22.18.0 or newer is required for TypeScript support. You have $node_installed_version."
+    exit 1
+fi
+
 #wasm-pack has some unreleased features regarding custom profiles
-#https://github.com/drager/wasm-pack/pull/1489
+#https://github.com/wasm-bindgen/wasm-pack/pull/1489
 cargo install --git https://github.com/Argeo-Robotics/wasm-pack.git --rev 956f6e4 --locked
 cargo install cargo-watch --locked --version 8.5.3
 
@@ -95,7 +90,7 @@ if ! command -v borger >/dev/null; then
 
 		if [[ -w $fish_config ]]; then
 			{
-				echo -e '\n# borger'
+				echo -e '\n#borger'
 
 				for command in "${commands[@]}"; do
 					echo "$command"
@@ -122,7 +117,7 @@ if ! command -v borger >/dev/null; then
 
 		if [[ -w $zsh_config ]]; then
 			{
-				echo -e '\n# borger'
+				echo -e '\n#borger'
 
 				for command in "${commands[@]}"; do
 					echo "$command"
@@ -164,7 +159,7 @@ if ! command -v borger >/dev/null; then
 
 			if [[ -w $bash_config ]]; then
 				{
-					echo -e '\n# borger'
+					echo -e '\n#borger'
 
 					for command in "${commands[@]}"; do
 						echo "$command"

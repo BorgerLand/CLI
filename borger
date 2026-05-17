@@ -23,7 +23,7 @@ check_for_update()
 assert_dev_not_running()
 {
 	#match our own concurrently invocation from cmd_dev
-	if pgrep -f "bun concurrently.*RUN-CODEGEN" >/dev/null 2>&1; then
+	if pgrep -f "RUN-CODEGEN" >/dev/null 2>&1; then
 		echo "ERROR: Please close borger dev to avoid accidentally triggering concurrent builds."
 		exit 1
 	fi
@@ -46,7 +46,7 @@ cmd_init()
 	git clone --recurse-submodules https://github.com/BorgerLand/BlankTemplate.git "$DIR"
 	cd "$DIR"
 	rm eslint.config.ts prettier.config.ts rustfmt.toml
-	bun uninstall @eslint/js eslint-config-prettier eslint-plugin-prettier jiti prettier typescript-eslint
+	npm uninstall @eslint/js eslint-config-prettier eslint-plugin-prettier prettier typescript-eslint
 	git remote remove origin
 	git checkout --orphan blank-history
 	git add .
@@ -68,7 +68,7 @@ cmd_setup()
 	set -x
 	
 	git submodule update --init --recursive
-	bun install --frozen-lockfile
+	npm ci
 
 	for i in "${!IDE_CONFIG_SOURCES[@]}"; do
 		local src="${IDE_CONFIG_SOURCES[$i]}"
@@ -78,8 +78,8 @@ cmd_setup()
 
 	#build it for the first time so that dev doesn't kick off even more setting up
 	cd borger/code_generator
-	bun tsc
-	bun src/main.ts
+	npx tsc
+	npx tsx src/main.ts
 	cd ../server
 	cargo build --profile server-dev --features server
 	cd ../client/rs
@@ -128,15 +128,15 @@ cmd_dev()
 	done
 	
 	cd borger/code_generator
-	bun tsc
-	bun src/main.ts
+	npx tsc
+	npx tsx src/main.ts
 	cd ../..
 
-	bun concurrently \
+	npx concurrently \
 		--names "RUN-CODEGEN,TSC-CODEGEN,SERVER-RUST,CLIENT-RUST,CLIENT-VITE" \
 		-c      "bgGreen.bold,bgYellow.bold,bgBlue.bold,bgWhite.bold,bgRed.bold" \
-		"cd borger/code_generator && bun --watch --no-clear-screen src/main.ts" \
-		"cd borger/code_generator && bun tsc --watch --preserveWatchOutput" \
+		"cd borger/code_generator && npx tsx watch --clear-screen=false src/main.ts" \
+		"cd borger/code_generator && npx tsc --watch --preserveWatchOutput" \
 		"cd borger/server    && cargo watch --why --no-vcs-ignores \
 			-w '../../borger/engine' \
 			-w '../../borger/server' \
@@ -161,214 +161,44 @@ cmd_dev()
 			-s \"rm -f pkg/client_rs_mt_bg.wasm \
 				&& wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES \
 				--config 'include=[\\\".cargo/config.mt.toml\\\"]'\"" \
-		"bun vite $VITE_HOST"
-}
-
-release_help()
-{
-	echo "Usage: borger release [options]"
-	echo ""
-	echo "Options:"
-	echo "  --build"
-	echo "  --run"
-	echo "  --password \"the password\"             (in conjunction with --run) Require a password to view the webpage. The username is blank."
-	echo "  --fullchain \"/path/to/fullchain.pem\"  (required for --run)"
-	echo "  --privkey \"/path/to/privkey.pem\"      (required for --run)"
-	echo "  --webtransport-port <u16>             (in conjunction with --run) WebTransport port. Default 6969"
-	echo "  --websocket-port <u16>                (in conjunction with --run) WebSocket port. Default 6996"
-	echo "  --https-port <u16>                    (in conjunction with --run) HTTPS port. Default 443"
-	echo "  --http-port <u16>                     (in conjunction with --run) HTTP port that redirects to HTTPS. Default 80"
-	echo "  --help"
+		"npx vite $VITE_HOST"
 }
 
 cmd_release()
 {
+	assert_dev_not_running
 	check_for_update
-	
-	local BUILD=""
-	local RUN=""
-	local PASSWORD=""
-	local FULLCHAIN=""
-	local PRIVKEY=""
-	local WEBTRANSPORT_PORT="6969"
-	local WEBSOCKET_PORT="6996"
-	local HTTPS_PORT="443"
-	local HTTP_PORT="80"
 
-	if [ $# -eq 0 ]; then
-		release_help
-		exit 0
-	fi
+	if [ -d "release" ] || [ -d "borger/client/rs/pkg" ]; then
+		echo "WARNING: The existing /release and /borger/client/rs/pkg folders need to be removed to proceed."
+		echo "Are you sure you want to obliterate? (y/n)"
 
-	while [[ $# -gt 0 ]]; do
-		case $1 in
-			--build)
-				BUILD=1
-				shift
-				;;
-			--run)
-				RUN=1
-				shift
-				;;
-			--password)
-				PASSWORD="$2"
-				shift 2
-				;;
-			--fullchain)
-				FULLCHAIN="$2"
-				shift 2
-				;;
-			--privkey)
-				PRIVKEY="$2"
-				shift 2
-				;;
-			--webtransport-port)
-				WEBTRANSPORT_PORT="$2"
-				shift 2
-				;;
-			--websocket-port)
-				WEBSOCKET_PORT="$2"
-				shift 2
-				;;
-			--https-port)
-				HTTPS_PORT="$2"
-				shift 2
-				;;
-			--http-port)
-				HTTP_PORT="$2"
-				shift 2
-				;;
-			*)
-				release_help
-				exit 1
-				;;
-		esac
-	done
-
-	if [ -n "$BUILD" ]; then
-		assert_dev_not_running
-
-		if [ -d "release" ] || [ -d "borger/client/rs/pkg" ]; then
-			echo "WARNING: The existing /release and /borger/client/rs/pkg folders need to be removed to proceed."
-			echo "Are you sure you want to obliterate? (y/n)"
-
-			read -r response
-			if ! [[ "$response" =~ $YES_RE ]]; then
-				exit 1
-			fi
-			
-			set -x
-			rm -rf release borger/client/rs/pkg
-		else
-			set -x
-		fi
-
-		cd borger/code_generator
-		bun tsc
-		bun src/main.ts
-		cd ../client/rs
-		wasm-pack build --out-name client_rs_mt --profile client-release --target=web --features client --config 'include=[".cargo/config.mt.toml"]'
-		wasm-pack build --out-name client_rs_st --profile client-release --target=web --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
-		cd ../../..
-		bun vite build
-		bun rolldown --minify borger/client/rs/pkg/client_rs*.js -d release/client/assets
-		mv borger/client/rs/pkg/*.wasm release/client/assets
-		rm -rf release/client/devcert.json borger/client/rs/pkg #leaving stale builds in pkg confuses wasm-opt sometimes
-		cd borger/server
-		cargo build --profile server-release --features server
-		cd  ../..
-		mv target/server-release/server release
-
-		set +x
-	fi
-
-	if [ -n "$RUN" ]; then
-		if [ -z "$FULLCHAIN" ] || [ -z "$PRIVKEY" ]; then
-			echo "ERROR: --fullchain and --privkey are both required for --run"
+		read -r response
+		if ! [[ "$response" =~ $YES_RE ]]; then
 			exit 1
 		fi
 
-		FULLCHAIN="$(cd "$(dirname "$FULLCHAIN")" && pwd)/$(basename "$FULLCHAIN")"
-		PRIVKEY="$(cd "$(dirname "$PRIVKEY")" && pwd)/$(basename "$PRIVKEY")"
-
-		cd release
-
-		bun concurrently \
-			"./server --fullchain \"$FULLCHAIN\" --privkey \"$PRIVKEY\" --webtransport-port \"$WEBTRANSPORT_PORT\" --websocket-port \"$WEBSOCKET_PORT\"" \
-			"cd client && cat <<'SCRIPT' | PASSWORD=\"$PASSWORD\" FULLCHAIN=\"$FULLCHAIN\" PRIVKEY=\"$PRIVKEY\" HTTPS_PORT=\"$HTTPS_PORT\" HTTP_PORT=\"$HTTP_PORT\" bun -
-import { serve } from \"bun\";
-import { file } from \"bun\";
-
-const password = process.env.PASSWORD;
-const fullchain = process.env.FULLCHAIN;
-const privkey = process.env.PRIVKEY;
-const httpsPort = parseInt(process.env.HTTPS_PORT);
-const httpPort = parseInt(process.env.HTTP_PORT);
-const headers = {
-	\"Cross-Origin-Opener-Policy\": \"same-origin\",
-	\"Cross-Origin-Embedder-Policy\": \"require-corp\",
-	\"Cache-Control\": \"no-store, no-cache, must-revalidate\",
-	\"Pragma\": \"no-cache\",
-	\"Expires\": \"0\",
-	\"Strict-Transport-Security\": \"max-age=31536000; includeSubDomains\",
-};
-
-function checkAuth(req) {
-	if (!password) return true;
-	const auth = req.headers.get(\"Authorization\");
-	if (!auth || !auth.startsWith(\"Basic \")) return false;
-	const decoded = atob(auth.slice(6));
-	const [, pwd] = decoded.split(\":\");
-	return pwd === password;
-}
-
-serve({
-	port: httpsPort,
-	tls: {
-		cert: Bun.file(fullchain),
-		key: Bun.file(privkey),
-	},
-	async fetch(req) {
-		if (!checkAuth(req)) {
-			return new Response(\"Unauthorized\", {
-				status: 401,
-				headers: { ...headers, \"WWW-Authenticate\": \"Basic realm=\\\"Protected\\\"\" },
-			});
-		}
-
-		const url = new URL(req.url);
-		let pathname = url.pathname;
-
-		if (pathname === \"/\") pathname = \"/index.html\";
-
-		//remove leading slash for file path
-		const filePath = pathname.slice(1) || \"index.html\";
-
-		const fileHandle = file(filePath);
-
-		if (await fileHandle.exists()) return new Response(fileHandle, { headers });
-		return new Response(\"404 Not Found\", { status: 404, headers });
-	},
-});
-
-serve({
-	port: httpPort,
-	fetch(req) {
-		const url = new URL(req.url);
-		const host = (req.headers.get(\"host\") || url.hostname).split(\":\")[0];
-		const hostWithPort = httpsPort === 443 ? host : \`\${host}:\${httpsPort}\`;
-		const location = \`https://\${hostWithPort}\${url.pathname}\${url.search}\`;
-		return new Response(null, {
-			status: 301,
-			headers: { \"Location\": location },
-		});
-	},
-});
-
-console.log(\`HTTP redirect server running on port \${httpPort}\`);
-console.log(\`HTTPS server running on port \${httpsPort}\`);
-SCRIPT"
+		set -x
+		rm -rf release borger/client/rs/pkg
+	else
+		set -x
 	fi
+
+	cd borger/code_generator
+	npx tsc
+	npx tsx src/main.ts
+	cd ../client/rs
+	wasm-pack build --out-name client_rs_mt --profile client-release --target=web --features client --config 'include=[".cargo/config.mt.toml"]'
+	wasm-pack build --out-name client_rs_st --profile client-release --target=web --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
+	cd ../../..
+	npx vite build
+	npx rolldown --minify borger/client/rs/pkg/client_rs*.js -d release/client/assets
+	mv borger/client/rs/pkg/*.wasm release/client/assets
+	rm -rf release/client/devcert.json borger/client/rs/pkg #leaving stale builds in pkg confuses wasm-opt sometimes
+	cd borger/server
+	cargo build --profile server-release --features server
+	cd  ../..
+	mv target/server-release/server release
 }
 
 cmd_clean()
