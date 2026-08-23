@@ -7,8 +7,11 @@ IDE_CONFIG_SOURCES=(".vscode/launch.json.example" ".vscode/settings.json.example
 IDE_CONFIG_TARGETS=(".vscode/launch.json"         ".vscode/settings.json")
 YES_RE="^([yY][eE][sS]|[yY])$"
 
+#$1: whether to cd into the root of the project repo
 pre_launch_checks()
 {
+	local cd_repo_root="$1"
+	
 	if pgrep -f "RUN-CODEGEN" >/dev/null 2>&1; then
 		echo "ERROR: Please close borger dev to avoid accidentally triggering concurrent builds."
 		exit 1
@@ -17,10 +20,10 @@ pre_launch_checks()
 	#check for updates
 	local cli_local
 	cli_local="$(cat "$0")"
-
+	
 	local cli_remote
 	cli_remote="$(curl -fsSL --max-time 3 "https://raw.githubusercontent.com/BorgerLand/CLI/refs/heads/main/borger" 2>/dev/null)" || true
-
+	
 	if [[ -n "$cli_remote" && "$cli_local" != "$cli_remote" ]]; then
 		echo -e "\033[1mUpdate is available for Borger CLI. You can install with:\033[0m"
 		echo -e "\033[1m  curl -fsSL https://eat.borger.dev | bash\033[0m"
@@ -29,6 +32,28 @@ pre_launch_checks()
 	
 	NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 	\. "$NVM_DIR/nvm.sh" --no-use
+	
+	[ "$cd_repo_root" = true ] || return 0
+	
+	local dir
+	dir="$(pwd -P)"
+	
+	while true; do
+		#walk up the directory tree, determine where the root of the repo
+		#is by querying git config whether there is a submodule called
+		#borger at the repo root
+		if git config --file "$dir/.gitmodules" \
+			--get-regexp '^submodule\..*\.path$' '^borger$' >/dev/null 2>&1; then
+			cd "$dir"
+			return 0
+		fi
+		
+		[ "$dir" = "/" ] && break
+		dir="$(dirname "$dir")"
+	done
+	
+	echo "ERROR: Not inside a borger project (unable to find the borger submodule)."
+	exit 1
 }
 
 cmd_init()
@@ -39,11 +64,11 @@ cmd_init()
 		exit 1
 	fi
 	
-	pre_launch_checks
+	pre_launch_checks false
 	
 	set -x
 	local DIR="$1"
-
+	
 	git clone --recurse-submodules https://github.com/BorgerLand/BlankTemplate.git "$DIR"
 	cd "$DIR"
 	rm eslint.config.ts prettier.config.ts rustfmt.toml
@@ -63,14 +88,14 @@ cmd_init()
 
 cmd_install()
 {
-	pre_launch_checks
+	pre_launch_checks true
 	nvm install
 	
 	set -x
 	
 	git submodule update --init --recursive
 	npm ci
-
+	
 	for i in "${!IDE_CONFIG_SOURCES[@]}"; do
 		local src="${IDE_CONFIG_SOURCES[$i]}"
 		local target="${IDE_CONFIG_TARGETS[$i]}"
@@ -105,11 +130,11 @@ dev_help()
 
 cmd_dev()
 {
-	pre_launch_checks
+	pre_launch_checks true
 	
 	local CLIENT_FEATURES="client"
 	local VITE_HOST=""
-
+	
 	while [[ $# -gt 0 ]]; do
 		case $1 in
 			--session-replay)
@@ -132,7 +157,7 @@ cmd_dev()
 	npx tsc
 	npx tsx src/main.ts
 	cd ../..
-
+	
 	npx concurrently \
 		--names "RUN-CODEGEN,TSC-CODEGEN,SERVER-RUST,CLIENT-RUST,CLIENT-VITE" \
 		-c      "bgGreen.bold,bgYellow.bold,bgBlue.bold,bgWhite.bold,bgRed.bold" \
@@ -167,18 +192,18 @@ cmd_dev()
 
 cmd_release()
 {
-	pre_launch_checks
+	pre_launch_checks true
 	nvm use
 	
 	if [ -d "release" ] || [ -d "borger/client/rs/pkg" ]; then
 		echo "WARNING: The existing /release and /borger/client/rs/pkg folders need to be removed to proceed."
 		echo "Are you sure you want to obliterate? (y/n)"
-
+		
 		read -r response
 		if ! [[ "$response" =~ $YES_RE ]]; then
 			exit 1
 		fi
-
+		
 		set -x
 		rm -rf release borger/client/rs/pkg
 	else
@@ -204,8 +229,8 @@ cmd_release()
 
 cmd_clean()
 {
-	pre_launch_checks
-	
+	pre_launch_checks true
+
 	#for whatever reason, git clean -X (delete gitignored files) and -e (exclude) can't
 	#be used together, so excluded files must be manually filtered from the dry run
 	local GITIGNORED
@@ -218,7 +243,7 @@ cmd_clean()
 	local FILES_TO_CLEAN=()
 	while IFS= read -r file; do
 		[[ -n "$file" ]] || continue
-
+		
 		local is_protected=false
 		for pattern in "${IDE_CONFIG_TARGETS[@]}"; do
 			if [[ "$file" == "$pattern" ]]; then
@@ -226,29 +251,29 @@ cmd_clean()
 				break
 			fi
 		done
-
+		
 		if [[ "$is_protected" == false ]]; then
 			FILES_TO_CLEAN+=("$file")
 		fi
 	done <<< "$GITIGNORED"
-
+	
 	if [[ ${#FILES_TO_CLEAN[@]} -eq 0 ]]; then
 		echo "Workspace is already clean. Nothing to delete."
 		exit 0
 	fi
-
+	
 	for file in "${FILES_TO_CLEAN[@]}"; do
 		echo "Would remove $file"
 	done
-
+	
 	echo "WARNING: The files listed above (everything in .gitignore excluding IDE config) will be deleted."
 	echo "Are you sure you want to obliterate? (y/n)"
-
+	
 	read -r response
 	if ! [[ "$response" =~ $YES_RE ]]; then
 		exit 1
 	fi
-
+	
 	for file in "${FILES_TO_CLEAN[@]}"; do
 		rm -rf "$file"
 	done
