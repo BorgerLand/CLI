@@ -21,25 +21,16 @@ if ! command -v rustup &>/dev/null; then
 	fi
 fi
 
-if ! command -v node &>/dev/null; then
-	read -rp "Node.js is not installed. Would you like to install it? (y/n) " response </dev/tty
+NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  \. "$NVM_DIR/nvm.sh"
+else
+	read -rp "NVM is not installed. Would you like to install it? (y/n) " response </dev/tty
 	if [[ "$response" =~ $YES_RE ]]; then
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-		NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-		\. "$NVM_DIR/nvm.sh"
-		nvm install node
-		needs_restart=true
 	else
 		exit 1
 	fi
-fi
-
-node_required_version="22.18.0"
-node_installed_version=$(node --version | sed 's/^v//')
-
-if ! printf '%s\n%s' "$node_required_version" "$node_installed_version" | sort -V -C; then
-    echo "ERROR: Node.js 22.18.0 or newer is required for TypeScript support. You have $node_installed_version."
-    exit 1
 fi
 
 #wasm-pack has some unreleased features regarding custom profiles

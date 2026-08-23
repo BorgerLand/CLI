@@ -27,22 +27,8 @@ pre_launch_checks()
 		echo
 	fi
 	
-	#use pinned node version
 	NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-	\. "$NVM_DIR/nvm.sh"
-	nvm install
-	
-	#if internet connection is working, make sure @types/node version
-	#matches .nvmrc specified version of node
-	if [[ -n "$cli_remote" ]]; then
-		node_major="$(node -v)";
-		node_major="${node_major#v}";
-		node_major="${node_major%%.*}"
-		types_major="$(node -p "require('./package-lock.json').packages['node_modules/@types/node'].version.split('.')[0]" 2>/dev/null)" || true
-		if [[ "$types_major" != "$node_major" ]]; then
-			npm install --save-dev "@types/node@${node_major}"
-		fi
-	fi
+	\. "$NVM_DIR/nvm.sh" --no-use
 }
 
 cmd_init()
@@ -78,6 +64,7 @@ cmd_init()
 cmd_setup()
 {
 	pre_launch_checks
+	nvm install
 	
 	set -x
 	
@@ -89,7 +76,7 @@ cmd_setup()
 		local target="${IDE_CONFIG_TARGETS[$i]}"
 		[ -f "$target" ] || cp "$src" "$target"
 	done
-
+	
 	#build it for the first time so that dev doesn't kick off even more setting up
 	cd borger/code_generator
 	npx tsc
@@ -119,6 +106,7 @@ dev_help()
 cmd_dev()
 {
 	pre_launch_checks
+	nvm use
 	
 	local CLIENT_FEATURES="client"
 	local VITE_HOST=""
@@ -180,8 +168,8 @@ cmd_dev()
 cmd_release()
 {
 	pre_launch_checks
-	check_for_update
-
+	nvm use
+	
 	if [ -d "release" ] || [ -d "borger/client/rs/pkg" ]; then
 		echo "WARNING: The existing /release and /borger/client/rs/pkg folders need to be removed to proceed."
 		echo "Are you sure you want to obliterate? (y/n)"
@@ -196,7 +184,7 @@ cmd_release()
 	else
 		set -x
 	fi
-
+	
 	cd borger/code_generator
 	npx tsc
 	npx tsx src/main.ts
