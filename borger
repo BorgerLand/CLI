@@ -58,10 +58,10 @@ cmd_init()
 	git branch -m master
 	
 	set +x
-	cmd_setup
+	cmd_install
 }
 
-cmd_setup()
+cmd_install()
 {
 	pre_launch_checks
 	nvm install
@@ -106,7 +106,6 @@ dev_help()
 cmd_dev()
 {
 	pre_launch_checks
-	nvm use
 	
 	local CLIENT_FEATURES="client"
 	local VITE_HOST=""
@@ -128,6 +127,7 @@ cmd_dev()
 		esac
 	done
 	
+	nvm use
 	cd borger/code_generator
 	npx tsc
 	npx tsx src/main.ts
@@ -259,8 +259,8 @@ main_help()
 	echo "Usage: borger <command>"
 	echo ""
 	echo "Commands:"
-	echo "  init <dir>  Scaffold a new project in the given directory name, then automatically run setup"
-	echo "  setup       Download and compile dependencies"
+	echo "  init <dir>  Scaffold a new project in the given directory name, then automatically run install"
+	echo "  install     Download and compile dependencies"
 	echo "  dev         Development mode, automatically rebuilds when code changes"
 	echo "  release     Release mode, creates server executable and static client webpage"
 	echo "  clean       Remove all gitignored files except IDE config"
@@ -271,9 +271,9 @@ case "${1:-}" in
 		shift
 		cmd_init "$@"
 		;;
-	setup)
+	install)
 		shift
-		cmd_setup "$@"
+		cmd_install "$@"
 		;;
 	dev)
 		shift
