@@ -19,6 +19,13 @@ while true; do
 		--get-regexp '^submodule\..*\.path$' '^borger$' >/dev/null 2>&1; then
 		FOUND_PROJECT=true
 		cd "$dir"
+		
+		#submodule needs to have been initialized; otherwise cli.sh won't exist
+		if [ -z "$(git submodule status borger 2>/dev/null)" ] || \
+			[ "$(git submodule status borger 2>/dev/null | cut -c1)" = "-" ]; then
+			git submodule update --init --recursive
+		fi
+		
 		break
 	fi
 	
