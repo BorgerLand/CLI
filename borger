@@ -39,7 +39,7 @@ cmd_init()
 	
 	git clone --recurse-submodules https://github.com/BorgerLand/BlankTemplate.git "$DIR"
 	cd "$DIR"
-	borger/cli.sh ptlaaxobimwroe init
+	borger/cli.sh ptlaaxobimwroe postinit
 }
 
 cmd_help()
