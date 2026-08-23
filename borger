@@ -30,10 +30,7 @@ pre_launch_checks()
 	#use pinned node version
 	NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 	\. "$NVM_DIR/nvm.sh"
-	
-	if ! nvm use; then
-		nvm install
-	fi
+	nvm install
 	
 	#if internet connection is working, make sure @types/node version
 	#matches .nvmrc specified version of node
