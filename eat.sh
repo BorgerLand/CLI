@@ -3,6 +3,14 @@ set -euo pipefail
 
 YES_RE="^([yY][eE][sS]|[yY])$"
 
+force_yes=false
+while getopts ":y" opt; do
+	case $opt in
+	y) force_yes=true ;;
+	*) ;;
+	esac
+done
+
 if ! command -v git &>/dev/null; then
 	echo "ERROR: You need to install git in order to cook borger."
 	exit 1
@@ -11,7 +19,12 @@ fi
 needs_restart=false
 
 if ! command -v rustup &>/dev/null; then
-	read -rp "Rustup is not installed. Would you like to install it? (y/n) " response </dev/tty
+	if [[ $force_yes = true ]]; then
+		response=y
+	else
+		read -rp "Rustup is not installed. Would you like to install it? (y/n) " response </dev/tty
+	fi
+	
 	if [[ "$response" =~ $YES_RE ]]; then
 		curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 		export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
@@ -25,7 +38,12 @@ NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   \. "$NVM_DIR/nvm.sh"
 else
-	read -rp "NVM is not installed. Would you like to install it? (y/n) " response </dev/tty
+	if [[ $force_yes = true ]]; then
+		response=y
+	else
+		read -rp "NVM is not installed. Would you like to install it? (y/n) " response </dev/tty
+	fi
+	
 	if [[ "$response" =~ $YES_RE ]]; then
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
 	else
