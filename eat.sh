@@ -12,7 +12,7 @@ while getopts ":y" opt; do
 done
 
 if ! command -v git &>/dev/null; then
-	echo "ERROR: You need to install git in order to cook borger."
+	echo "ERROR: You need to install git in order to cook borger." >&2
 	exit 1
 fi
 

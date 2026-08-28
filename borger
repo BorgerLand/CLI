@@ -36,8 +36,8 @@ done
 cmd_init()
 {
 	if [ -z "${1:-}" ]; then
-		echo "ERROR: directory name is required"
-		echo "Usage: borger init <dir>"
+		echo "ERROR: directory name is required" >&2
+		echo "Usage: borger init <dir>" >&2
 		exit 1
 	fi
 	
