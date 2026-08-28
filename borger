@@ -44,7 +44,7 @@ cmd_init()
 	local DIR="$1"
 	
 	set -x
-	git clone --recurse-submodules https://github.com/BorgerLand/BlankTemplate.git "$DIR"
+	git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/BorgerLand/BlankTemplate.git "$DIR"
 	cd "$DIR"
 	set +x
 	source borger/cli.sh ptlaaxobimwroe postinit
